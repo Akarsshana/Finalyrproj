@@ -40,12 +40,12 @@ function ExOne() {
       setStreaming(false);
       setResting(true);
       speak({
-        text: "Excellent work! Wrist rotation exercise completed. Take a short rest before moving to the next exercise.",
+        text: "Excellent work!!!!! Wrist rotation exercise completed. Take a short rest before moving to the next exercise.",
         voice: voices[0],
       });
     } else if (rotationCount >= Math.floor(totalReps / 2) && !halfwayMotivated) {
       speak({
-        text: "Great job! You’re halfway through this exercise. Keep it up!",
+        text: "Great job! You’re halfway through this exercise. Keep it up!!!!!",
         voice: voices[0],
       });
       setHalfwayMotivated(true);
