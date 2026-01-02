@@ -1,0 +1,17 @@
+# Backend Python dependencies for Motion-Aid
+# Install with: pip install -r requirements.txt
+
+Flask>=2.0
+flask-socketio>=5.3.2
+# socketio/engineio are usually pulled in by flask-socketio, but pin common compatible versions
+python-socketio>=5.7.2
+python-engineio>=4.3.1
+
+opencv-python>=4.5.5.64
+mediapipe>=0.10.0
+numpy>=1.21.0
+
+# Notes:
+# - base64 and threading are stdlib and do not need to be listed.
+# - On Windows, MediaPipe may require a supported Python version (3.8–3.10 or newer compatible builds).
+# - If you prefer async workers, you can also install eventlet or gevent; current code uses threading mode.

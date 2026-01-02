@@ -6,6 +6,8 @@ import { useSpeechSynthesis } from "react-speech-kit";
 const socket = io("http://localhost:5000");
 
 function ExOne() {
+  const [completionSpoken, setCompletionSpoken] = useState(false);
+
   const [videoFrame, setVideoFrame] = useState(null);
   const [rotationCount, setRotationCount] = useState(0);
   const [streaming, setStreaming] = useState(false);
@@ -35,22 +37,32 @@ function ExOne() {
   }, [sessionCompleted, paused, streaming]);
 
   useEffect(() => {
-    if (rotationCount >= totalReps) {
-      setSessionCompleted(true);
-      setStreaming(false);
-      setResting(true);
-      speak({
-        text: "Excellent work!!!!! Wrist rotation exercise completed. Take a short rest before moving to the next exercise.",
-        voice: voices[0],
-      });
-    } else if (rotationCount >= Math.floor(totalReps / 2) && !halfwayMotivated) {
-      speak({
-        text: "Great job! You’re halfway through this exercise. Keep it up!!!!!",
-        voice: voices[0],
-      });
-      setHalfwayMotivated(true);
-    }
-  }, [rotationCount, halfwayMotivated, voices, speak]);
+  if (rotationCount >= totalReps && !completionSpoken) {
+    setCompletionSpoken(true);
+    setSessionCompleted(true);
+    setStreaming(false);
+    setResting(true);
+
+    window.speechSynthesis.cancel();
+    speak({
+      text: "Excellent work! Wrist rotation exercise completed. Take a short rest.",
+      voice: voices[0],
+    });
+  }
+
+  if (
+    rotationCount >= Math.floor(totalReps / 2) &&
+    !halfwayMotivated
+  ) {
+    window.speechSynthesis.cancel();
+    speak({
+      text: "Great job! You’re halfway through this exercise. Keep it up.",
+      voice: voices[0],
+    });
+    setHalfwayMotivated(true);
+  }
+}, [rotationCount, halfwayMotivated, completionSpoken, voices, speak]);
+
 
   useEffect(() => {
     let timer;
@@ -64,19 +76,31 @@ function ExOne() {
   }, [resting, countdown]);
 
   const startVideoFeed = () => {
-    setRotationCount(0);
-    setSessionCompleted(false);
-    setResting(false);
-    setCountdown(30);
-    setStreaming(true);
-    setPaused(false);
-    setHalfwayMotivated(false);
-    speak({
-      text: "Let's begin your wrist rotation exercise. Rotate your wrist slowly and steadily.",
-      voice: voices[0],
-    });
-    socket.emit("start_rotation");
-  };
+  window.speechSynthesis.cancel();
+
+  // 🔴 STOP previous backend session
+  socket.emit("stop_rotation");
+
+  // 🔁 RESET frontend
+  setRotationCount(0);
+  setSessionCompleted(false);
+  setResting(false);
+  setCountdown(30);
+  setHalfwayMotivated(false);
+  setCompletionSpoken(false);
+
+  // 🚀 START fresh backend session
+  socket.emit("start_rotation");
+
+  setStreaming(true);
+  setPaused(false);
+
+  speak({
+    text: "Let's begin your wrist rotation exercise. Rotate your wrist slowly and steadily.",
+    voice: voices[0],
+  });
+};
+
 
   const handleRetry = () => startVideoFeed();
   const handleBack = () => navigate("/exzero");

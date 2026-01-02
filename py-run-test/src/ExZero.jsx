@@ -6,6 +6,9 @@ import { useSpeechSynthesis } from "react-speech-kit";
 const socket = io("http://localhost:5000");
 
 function ExZero() {
+  const [startSpoken, setStartSpoken] = useState(false);
+  const [completionSpoken, setCompletionSpoken] = useState(false);
+  const [halfwaySpoken, setHalfwaySpoken] = useState(false);
   const [videoFrame, setVideoFrame] = useState(null);
   const [openCloseCount, setOpenCloseCount] = useState(0);
   const [streaming, setStreaming] = useState(false);
@@ -32,13 +35,19 @@ if (data.accuracy !== undefined) {
 }
 
 
-        // 🎤 Halfway voice
-        if (data.count === Math.floor(totalReps / 2)) {
-          speak({
-            text: "Great job! You’re halfway there…",
-            voice: voices[0],
-          });
-        }
+        // 🎤 Halfway voice (say ONLY once)
+if (
+  data.count === Math.floor(totalReps / 2) &&
+  !halfwaySpoken
+) {
+  window.speechSynthesis.cancel();
+  speak({
+    text: "Great job! You’re halfway there…",
+    voice: voices[0],
+  });
+  setHalfwaySpoken(true);
+}
+
       }
     });
 
@@ -47,16 +56,21 @@ if (data.accuracy !== undefined) {
 
   // ✅ On completion voice
   useEffect(() => {
-    if (openCloseCount >= totalReps) {
-      setSessionCompleted(true);
-      setStreaming(false);
-      setResting(true);
-      speak({
-        text: "Excellent work! Take a short rest.",
-        voice: voices[0],
-      });
-    }
-  }, [openCloseCount, speak, voices]);
+  if (openCloseCount >= totalReps && !completionSpoken) {
+    setCompletionSpoken(true);     // ✅ guard
+    setSessionCompleted(true);
+    setStreaming(false);
+    setResting(true);
+
+    window.speechSynthesis.cancel();
+    speak({
+      text: "Excellent work! Take a short rest.",
+      voice: voices[0],
+    });
+  }
+}, [openCloseCount, completionSpoken, speak, voices]);
+
+
 
   // ✅ Rest timer
   useEffect(() => {
@@ -72,22 +86,54 @@ if (data.accuracy !== undefined) {
 
   const startVideoFeed = () => {
     setOpenCloseCount(0);
-    setSessionCompleted(false);
-    setResting(false);
-    setCountdown(30);
-    socket.emit("start_video");
-    setStreaming(true);
-    setPaused(false);
+  setSessionCompleted(false);
+  setResting(false);
+  setCountdown(30);
 
+  setHalfwaySpoken(false);      // reset halfway voice
+  setCompletionSpoken(false);   // reset completion voice
+  setStartSpoken(false);        // reset start voice
+
+// 🚀 START CAMERA STREAM  ✅✅
+  // 🔴 STOP previous backend session
+socket.emit("stop_openclose");
+
+// 🔁 RESET frontend
+setOpenCloseCount(0);
+setSessionCompleted(false);
+setResting(false);
+setCountdown(30);
+setHalfwaySpoken(false);
+setCompletionSpoken(false);
+setStartSpoken(false);
+
+// 🚀 START fresh backend session
+socket.emit("start_openclose");
+
+setStreaming(true);
+setPaused(false);
+
+  setStreaming(true);             // 🔴 THIS WAS MISSING
+  setPaused(false);               // 🔴 ALSO REQUIRED
+  
     // 🎤 Start voice
-    speak({
-      text: "Let's begin your fist open close exercise. Start slowly and steadily.",
-      voice: voices[0],
-    });
+    if (!startSpoken) {
+  window.speechSynthesis.cancel();
+  speak({
+    text: "Let's begin your fist open close exercise. Start slowly and steadily.",
+    voice: voices[0],
+  });
+  setStartSpoken(true);
+}
+
   };
 
   const handleRetry = () => startVideoFeed();
-  const handleNext = () => navigate("/exone");
+  const handleNext = () => {
+  socket.emit("stop_openclose");
+  navigate("/exone");
+};
+
   const togglePausePlay = () => setPaused((prev) => !prev);
 
   const progress = (openCloseCount / totalReps) * 100;
