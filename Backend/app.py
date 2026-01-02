@@ -4,6 +4,9 @@ import numpy as np
 import base64
 from flask import Flask
 from flask_socketio import SocketIO
+from ScriptThree import joinhands_loop, stop_joinhands_loop
+import threading
+
 
 import threading
 
@@ -144,11 +147,15 @@ def start_openclose():
             "count": open_close_count
         })
 
-        @socketio.on("stop_openclose")
-        def stop_openclose():
-            global run_openclose
-            run_openclose = False
-            print("🛑 Open–Close stopped")
+@socketio.on("stop_openclose")
+def stop_openclose():
+    global run_openclose
+    run_openclose = False
+    print("🛑 Open–Close stopped")
+       
+
+
+        
 
 @socketio.on("start_rotation")
 def start_rotation():
@@ -205,84 +212,26 @@ def stop_rotation():
 
 
 
-
-@socketio.on("stop_video")
-def stop_video():
-    global run_rotation
-    run_rotation = False
-    print("🛑 Video stopped")
-
-
-
-# =====================================================
-# 🙌 EXERCISE 3 → Arm Raise + Join Hands (POSE-based)
-# =====================================================
 @socketio.on("start_joinhands")
 def start_joinhands():
-    stop_all()
-
-    global run_joinhands, rep_count, hands_above_head, accuracy
-
-    run_joinhands = True
-    rep_count = 0
-    hands_above_head = False
-    accuracy = 0
-
-    print("▶️ Arm Raise + Join Hands Started")
-
-    while run_joinhands:
+    print("▶️ JoinHands START received")
+    t = threading.Thread(target=joinhands_loop, args=(socketio,))
+    t.start()
 
 
-        with lock:
-            success, frame = cap.read()
-        if not success:
-            continue
-
-        frame = cv2.flip(frame, 1)
-        h, w, _ = frame.shape
-        image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = pose.process(image_rgb)
-
-        if results.pose_landmarks:
-            lm = results.pose_landmarks.landmark
-            left_wrist = (lm[mp_pose.PoseLandmark.LEFT_WRIST].x, lm[mp_pose.PoseLandmark.LEFT_WRIST].y)
-            right_wrist = (lm[mp_pose.PoseLandmark.RIGHT_WRIST].x, lm[mp_pose.PoseLandmark.RIGHT_WRIST].y)
-            nose_y = lm[mp_pose.PoseLandmark.NOSE].y
-
-            avg_y = (left_wrist[1] + right_wrist[1]) / 2
-            accuracy = calculate_accuracy(left_wrist, right_wrist) if avg_y < nose_y else 0
-
-            # Detect raise
-            if avg_y < nose_y and not hands_above_head:
-                hands_above_head = True
-            # Detect lower
-            elif avg_y > nose_y + 0.15 and hands_above_head:
-                if accuracy >= 80:
-                    rep_count += 1
-                hands_above_head = False
-
-            mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
-
-        cv2.putText(frame, f"Reps: {rep_count}", (50, 60),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 3)
-        cv2.putText(frame, f"Accuracy: {accuracy:.1f}%", (50, 110),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 128, 255), 3)
-
-        _, buffer = cv2.imencode(".jpg", frame)
-        socketio.emit("joinhands_feed", {
-            "frame": base64.b64encode(buffer).decode("utf-8"),
-            "count": rep_count,
-            "accuracy": accuracy
-            
-        })
 @socketio.on("stop_joinhands")
 def stop_joinhands():
-    global run_joinhands
-    run_joinhands = False
-    print("🛑 Join hands exercise stopped")
+    print("🛑 JoinHands STOP received")
+    stop_joinhands_loop()
 
 
-        
+
+
+# =====================================================
+# 🙌 EXERCISE 3 → Join Hands Above Head (REPS)
+# =====================================================
+
+      
 
 # =====================================================
 # 🚀 Run Server
@@ -290,3 +239,11 @@ def stop_joinhands():
 if __name__ == "__main__":
     print("✅ MotionAid Flask Backend Running → http://localhost:5000")
     socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
+@socketio.on("start_joinhands")
+def start_joinhands():
+    print("▶️ JoinHands START received")
+    t = threading.Thread(target=joinhands_loop, args=(socketio,))
+    t.start()
+
+
+
